@@ -4,26 +4,17 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    fenix.url = "github:nix-community/fenix";
   };
 
-  outputs = { self, nixpkgs, flake-utils, fenix }:
+  outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ fenix.overlays.default ];
-        };
-        toolchain = fenix.packages.${system}.fromToolchainFile {
-          file = ./rust-toolchain.toml;
-          sha256 = "sha256-SDu4snEWjuZU475PERvu+iO50Mi39KVjqCeJeNvpguU=";
-        };
-        rustPlatform = pkgs.makeRustPlatform {
-          cargo = toolchain;
-          rustc = toolchain;
-        };
+        pkgs = nixpkgs.legacyPackages.${system};
       in {
-        packages.default = rustPlatform.buildRustPackage {
+        # nixpkgs' Rust instead of rust-toolchain.toml: fenix fetches the
+        # toolchain manifest during evaluation, so evaluating this package for
+        # another platform needs a builder for that platform.
+        packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "jj-lsp";
           version = "0.1.1-dev1";
           src = ./.;
@@ -32,8 +23,12 @@
         };
 
         devShells.default = pkgs.mkShell {
-          packages = [
-            toolchain
+          packages = with pkgs; [
+            cargo
+            clippy
+            rust-analyzer
+            rustc
+            rustfmt
           ];
         };
       });
